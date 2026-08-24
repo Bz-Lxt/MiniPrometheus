@@ -70,6 +70,11 @@ func RepairTail(dir string) (int, error) {
 		if err := f.Truncate(good); err != nil {
 			return dropped, err
 		}
+		// fsync the truncation so the shortened length is durable before
+		// anything (the writer) caches the file offset/size at Open time.
+		if err := f.Sync(); err != nil {
+			return dropped, err
+		}
 	}
 	return dropped, nil
 }
