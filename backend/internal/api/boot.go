@@ -24,12 +24,19 @@ func RunStorage(cfg config.Config) error {
 		return err
 	}
 	walDir := filepath.Join(cfg.DataDir, "wal")
+	// Repair the WAL tail BEFORE opening it for writes. wal.Open seeks to the
+	// end of the last segment and caches the file offset + size; if a corrupt
+	// tail is still present at that point, the cached offset will be stale after
+	// RepairTail truncates the file. Subsequent appends would then write past
+	// the truncated end, leaving a zero-filled hole that the next RepairTail
+	// treats as an invalid record and discards — silently losing every sample
+	// written since recovery.
+	if _, err := wal.RepairTail(walDir); err != nil {
+		logger.L().Warn("wal repair", "err", err.Error())
+	}
 	w, err := wal.Open(walDir)
 	if err != nil {
 		return err
-	}
-	if _, err := wal.RepairTail(walDir); err != nil {
-		logger.L().Warn("wal repair", "err", err.Error())
 	}
 	h := head.New(w)
 	n, err := wal.Replay(filepath.Join(cfg.DataDir, "wal"), h)
