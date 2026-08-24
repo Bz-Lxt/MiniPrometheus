@@ -1,0 +1,147 @@
+services:
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    networks:
+      - mp
+    restart: unless-stopped
+    environment:
+      - TZ=Asia/Shanghai
+
+  storage-0:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["/app/storage"]
+    environment:
+      - TZ=Asia/Shanghai
+      - MP_ROLE=storage
+      - MP_SHARD_ID=0
+      - MP_SHARD_COUNT=2
+      - MP_HTTP_ADDR=:8080
+      - MP_DATA_DIR=/data
+      - MP_LOG_LEVEL=info
+    volumes:
+      - storage0:/data
+    ports:
+      - "31873:8080"
+    networks:
+      - mp
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 15s
+
+  storage-1:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["/app/storage"]
+    environment:
+      - TZ=Asia/Shanghai
+      - MP_ROLE=storage
+      - MP_SHARD_ID=1
+      - MP_SHARD_COUNT=2
+      - MP_HTTP_ADDR=:8080
+      - MP_DATA_DIR=/data
+      - MP_LOG_LEVEL=info
+    volumes:
+      - storage1:/data
+    ports:
+      - "31874:8080"
+    networks:
+      - mp
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 15s
+
+  gateway:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["/app/gateway"]
+    environment:
+      - TZ=Asia/Shanghai
+      - MP_ROLE=gateway
+      - MP_HTTP_ADDR=:8080
+      - MP_SHARDS=http://storage-0:8080,http://storage-1:8080
+      - MP_LOG_LEVEL=info
+    ports:
+      - "31872:8080"
+    networks:
+      - mp
+    depends_on:
+      storage-0:
+        condition: service_healthy
+      storage-1:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
+  agent:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["/app/agent"]
+    environment:
+      - TZ=Asia/Shanghai
+      - MP_ROLE=agent
+      - MP_HTTP_ADDR=:8080
+      - MP_WRITE_URL=http://gateway:8080/api/v1/write
+      - MP_SCRAPE_MODE=both
+      - MP_SCRAPE_TARGETS=http://node-exporter:9100/metrics,http://gateway:8080/metrics,http://storage-0:8080/metrics,http://storage-1:8080/metrics
+      - MP_SYNTHETIC_RATE=8000
+      - MP_LOG_LEVEL=info
+    ports:
+      - "31875:8080"
+    networks:
+      - mp
+    depends_on:
+      gateway:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+  frontend:
+    build:
+      context: ./frontend-user
+      dockerfile: Dockerfile
+    ports:
+      - "31871:80"
+    networks:
+      - mp
+    depends_on:
+      gateway:
+        condition: service_healthy
+    restart: unless-stopped
+    environment:
+      - TZ=Asia/Shanghai
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 8s
+
+networks:
+  mp:
+
+volumes:
+  storage0:
+  storage1:
