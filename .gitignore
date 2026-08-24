@@ -1,0 +1,52 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+/bin/
+/dist/
+*.test
+*.out
+coverage.out
+coverage.html
+
+# Go
+vendor/
+
+# Node
+node_modules/
+frontend-user/dist/
+frontend-user/.vite/
+*.local
+
+# Data
+data/
+*.wal
+*.block
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+*.swp
+*.swo
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Test / Playwright
+test-results/
+playwright-report/
+blob-report/
+
+# Alkaid SOP (deploy stage also appends docs/)
+.alkaid-sop
+/docs/
+/.alkaid-sop
+/CLAUDE.md
+/AGENTS.md
+/.cursorrules
+/.github/
