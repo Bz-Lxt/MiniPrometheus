@@ -1,0 +1,12 @@
+.git
+.alkaid-sop
+docs
+**/.DS_Store
+**/node_modules
+**/dist
+**/.vite
+**/data
+**/*.test
+coverage.out
+playwright-report
+test-results
